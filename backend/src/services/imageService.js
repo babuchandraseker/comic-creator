@@ -75,7 +75,7 @@ export class ImageService {
       panelNumber,
     });
 
-    const modelName = 'black-forest-labs/FLUX.1-schnell';
+    const modelName = process.env.HF_IMAGE_MODEL || 'black-forest-labs/FLUX.1-schnell';
     console.log(`[IMAGE] Starting generation for panel ${panelNumber}`);
     console.log(`[IMAGE] Model: ${modelName}`);
     console.log(`[IMAGE] Hugging Face Inference Provider request started`);
@@ -159,7 +159,7 @@ export class ImageService {
   }
 
   /**
-   * Generates panel images sequentially to avoid rate limit spikes.
+   * Generates panel images concurrently for fast serverless performance.
    *
    * @param {Object} params
    * @param {Array<Object>} params.panels - Storyboard panels
@@ -168,41 +168,37 @@ export class ImageService {
    * @returns {Promise<Array<Object>>} Enriched panels with imageUrl and status
    */
   static async generateSequentialPanels({ panels = [], style = 'Superhero', onProgress }) {
-    const updatedPanels = [];
+    console.log(`[ImageService] Dispatching concurrent image generation for ${panels.length} panels...`);
 
-    for (let i = 0; i < panels.length; i++) {
-      const panel = panels[i];
-      const panelNumber = panel.panelNumber || i + 1;
+    const updatedPanels = await Promise.all(
+      panels.map(async (panel, i) => {
+        const panelNumber = panel.panelNumber || i + 1;
 
-      console.log(`[ImageService] Generating image for Panel ${panelNumber}/${panels.length}...`);
+        console.log(`[ImageService] Generating image for Panel ${panelNumber}/${panels.length}...`);
 
-      const result = await this.generateImage({
-        prompt: panel.imagePrompt || panel.sceneDescription,
-        style,
-        panelNumber,
-      });
+        const result = await this.generateImage({
+          prompt: panel.imagePrompt || panel.sceneDescription,
+          style,
+          panelNumber,
+        });
 
-      const updatedPanel = {
-        ...panel,
-        imageUrl: result.imageUrl,
-        imageStatus: result.success ? 'completed' : 'fallback',
-        imageError: result.error || null,
-        errorCategory: result.errorCategory || null,
-        isFallbackImage: !!result.isFallback,
-        imageProvider: result.provider || 'fallback-svg',
-      };
+        const updatedPanel = {
+          ...panel,
+          imageUrl: result.imageUrl,
+          imageStatus: result.success ? 'completed' : 'fallback',
+          imageError: result.error || null,
+          errorCategory: result.errorCategory || null,
+          isFallbackImage: !!result.isFallback,
+          imageProvider: result.provider || 'fallback-svg',
+        };
 
-      updatedPanels.push(updatedPanel);
+        if (typeof onProgress === 'function') {
+          onProgress(i + 1, panels.length, updatedPanel);
+        }
 
-      if (typeof onProgress === 'function') {
-        onProgress(i + 1, panels.length, updatedPanel);
-      }
-
-      // Small pause between sequential generations
-      if (i < panels.length - 1) {
-        await new Promise((resolve) => setTimeout(resolve, 300));
-      }
-    }
+        return updatedPanel;
+      })
+    );
 
     return updatedPanels;
   }

@@ -52,9 +52,9 @@ app.use(
   })
 );
 
-// 3. Request Body Size Limits & Parsers
-app.use(express.json({ limit: '5mb' }));
-app.use(express.urlencoded({ extended: true, limit: '5mb' }));
+// 3. Request Body Size Limits & Parsers (Supports high-res multi-panel image data)
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // 4. NoSQL / MongoDB Operator Injection Sanitizer
 app.use(sanitizeNoSql);

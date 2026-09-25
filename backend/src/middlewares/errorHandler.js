@@ -18,13 +18,13 @@ export const errorHandler = (err, req, res, next) => {
   if (err.type === 'entity.too.large' || statusCode === 413) {
     return res.status(413).json({
       success: false,
-      error: 'Request payload too large. Maximum allowed size is 5MB.',
+      error: 'Request payload too large. Maximum allowed size is 50MB.',
     });
   }
 
-  // Sanitize internal errors for production clients
+  // Sanitize internal errors for production clients while preserving explicit API errors
   let clientMessage = err.message || 'Internal Server Error';
-  if (isProduction && statusCode >= 500) {
+  if (isProduction && statusCode === 500 && !err.status && !err.isOperational) {
     clientMessage = 'An unexpected internal server error occurred. Please try again later.';
   }
 
