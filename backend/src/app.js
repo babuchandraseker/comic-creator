@@ -26,23 +26,30 @@ app.use(
   })
 );
 
-// 2. Strict CORS Configuration
-const allowedOrigins = [
-  process.env.CLIENT_URL,
-  'http://localhost:3000',
-  'http://localhost:5173',
-  'http://127.0.0.1:3000',
-  'http://127.0.0.1:5173',
-].filter(Boolean);
+// 2. Strict CORS Configuration supporting Localhost, Vercel Domains, and custom origins
+const isAllowedOrigin = (origin) => {
+  if (!origin) return true; // Allow non-browser requests / curl / serverless invocations
+  if (process.env.NODE_ENV !== 'production') return true;
+  if (process.env.CLIENT_URL && origin === process.env.CLIENT_URL) return true;
+  if (
+    origin.startsWith('http://localhost:') ||
+    origin.startsWith('http://127.0.0.1:') ||
+    origin.endsWith('.vercel.app') ||
+    origin === 'https://vercel.app'
+  ) {
+    return true;
+  }
+  return false;
+};
 
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow non-browser requests (like curl, mobile, or backend tests without origin header)
-      if (!origin || allowedOrigins.includes(origin) || process.env.NODE_ENV !== 'production') {
+      if (isAllowedOrigin(origin)) {
         callback(null, true);
       } else {
-        callback(new Error('CORS request blocked by ComicAI security policy.'));
+        console.warn(`[CORS Blocked]: Origin "${origin}" not in allowed list.`);
+        callback(new Error(`CORS request from ${origin} blocked by ComicAI security policy.`));
       }
     },
     credentials: true,
@@ -78,9 +85,11 @@ if (process.env.NODE_ENV !== 'test') {
 
 // 6. Global Rate Limiter for API endpoints
 app.use('/api', globalLimiter);
+app.use(globalLimiter);
 
-// 7. API Routes
+// 7. API Routes (mount on both /api and root for serverless flexibility)
 app.use('/api', routes);
+app.use('/', routes);
 
 // 8. 404 & Centralized Error Handlers
 app.use(notFoundHandler);

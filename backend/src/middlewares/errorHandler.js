@@ -14,6 +14,14 @@ export const errorHandler = (err, req, res, next) => {
     });
   }
 
+  // Handle CORS errors
+  if (err.message && err.message.includes('CORS request from')) {
+    return res.status(403).json({
+      success: false,
+      error: err.message,
+    });
+  }
+
   // Handle Payload Too Large
   if (err.type === 'entity.too.large' || statusCode === 413) {
     return res.status(413).json({
@@ -25,7 +33,19 @@ export const errorHandler = (err, req, res, next) => {
   // Sanitize internal errors for production clients while preserving explicit API errors
   let clientMessage = err.message || 'Internal Server Error';
   if (isProduction && statusCode === 500 && !err.status && !err.isOperational) {
-    clientMessage = 'An unexpected internal server error occurred. Please try again later.';
+    // Preserve clear operational error messages
+    if (
+      err.message &&
+      (err.message.includes('Gemini') ||
+        err.message.includes('Hugging Face') ||
+        err.message.includes('credits') ||
+        err.message.includes('quota') ||
+        err.message.includes('API key'))
+    ) {
+      clientMessage = err.message;
+    } else {
+      clientMessage = 'An unexpected internal server error occurred. Please try again later.';
+    }
   }
 
   // Safe server-side error logging (avoid dumping credentials)
