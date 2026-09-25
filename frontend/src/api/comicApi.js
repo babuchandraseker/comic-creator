@@ -1,6 +1,7 @@
 import { getStoredToken } from './authApi';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:5000/api');
 
 /**
  * Helper to build common headers including Authorization if present.
