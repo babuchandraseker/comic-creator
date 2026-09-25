@@ -112,7 +112,7 @@ export default function LoadingState({ panelCount = 6, style = 'Superhero' }) {
           <div className="flex items-center justify-between text-xs font-bold p-2.5 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 shadow-comic-sm">
             <span className="flex items-center gap-2 text-zinc-800 dark:text-zinc-200">
               <Wand2 className="w-4 h-4 text-yellow-500" />
-              <span>1. Gemini Story Analysis & Character Bible Engine</span>
+              <span>1. OpenRouter AI Story Analysis & Character Bible Engine</span>
             </span>
             {currentStep > 0 ? (
               <span className="flex items-center gap-1 text-green-600 dark:text-green-400">

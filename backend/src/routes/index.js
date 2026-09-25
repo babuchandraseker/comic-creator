@@ -18,21 +18,27 @@ router.get('/health', (req, res) => {
   });
 });
 
-// Gemini Configuration & Health check endpoint
+// OpenRouter Configuration & Health check endpoint
+router.get('/openrouter/health', (req, res) => {
+  const isConfigured = Boolean(process.env.OPENROUTER_API_KEY && process.env.OPENROUTER_API_KEY.trim().length > 0);
+  return res.status(200).json({
+    configured: isConfigured,
+    provider: 'openrouter',
+    model: process.env.OPENROUTER_MODEL || 'inclusionai/ling-3.0-flash-sante:free',
+    ...(isConfigured ? {} : { error: 'OPENROUTER_API_KEY is not configured' }),
+  });
+});
+
+// Legacy Gemini Health check endpoint (mapped to OpenRouter for backwards compatibility)
 router.get('/gemini/health', (req, res) => {
-  const isConfigured = Boolean(process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim().length > 0);
-  if (isConfigured) {
-    return res.status(200).json({
-      configured: true,
-      provider: 'gemini',
-    });
-  } else {
-    return res.status(200).json({
-      configured: false,
-      provider: 'gemini',
-      error: 'GEMINI_API_KEY is not configured',
-    });
-  }
+  const isConfigured = Boolean(
+    (process.env.OPENROUTER_API_KEY && process.env.OPENROUTER_API_KEY.trim().length > 0) ||
+    (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim().length > 0)
+  );
+  return res.status(200).json({
+    configured: isConfigured,
+    provider: 'openrouter',
+  });
 });
 
 // Hugging Face Image Generation Health check endpoint

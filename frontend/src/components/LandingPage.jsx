@@ -41,7 +41,7 @@ const STEPS = [
   {
     step: '04',
     title: 'AI Generation',
-    desc: 'Gemini analyzes the plot & Character Bible, and Hugging Face FLUX paints sequential illustrations.',
+    desc: 'OpenRouter analyzes the plot & Character Bible, and Hugging Face FLUX paints sequential illustrations.',
     icon: '⚡',
     color: 'bg-pink-400',
   },

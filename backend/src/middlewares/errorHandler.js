@@ -36,10 +36,11 @@ export const errorHandler = (err, req, res, next) => {
     // Preserve clear operational error messages
     if (
       err.message &&
-      (err.message.includes('Gemini') ||
+      (err.message.includes('OpenRouter') ||
         err.message.includes('Hugging Face') ||
         err.message.includes('credits') ||
         err.message.includes('quota') ||
+        err.message.includes('rate limit') ||
         err.message.includes('API key'))
     ) {
       clientMessage = err.message;

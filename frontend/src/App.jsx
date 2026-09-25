@@ -156,7 +156,7 @@ export default function App() {
       console.error('Failed to generate full comic:', err);
       const errMsg =
         err.message ||
-        'Failed to communicate with ComicAI backend. Please check your backend server and Gemini API key.';
+        'Failed to communicate with ComicAI backend. Please check your backend server and connection.';
       setError(errMsg);
       addToast({
         type: 'error',

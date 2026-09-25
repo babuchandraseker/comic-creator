@@ -1,4 +1,4 @@
-import { GeminiService } from '../services/gemini.service.js';
+import { OpenRouterService } from '../services/openrouter.service.js';
 import { ImageService } from '../services/imageService.js';
 import { CharacterService } from '../services/characterService.js';
 import { CloudinaryService } from '../services/cloudinaryService.js';
@@ -7,12 +7,12 @@ import { getDbStatus } from '../config/database.js';
 
 export class ComicController {
   /**
-   * Complete End-to-End Comic Generation (Phases 1-8):
-   * 1. Analyze story & Character Bible (Gemini)
+   * Complete End-to-End Comic Generation:
+   * 1. Analyze story & Character Bible (OpenRouter)
    * 2. Create storyboard & consistent prompts
-   * 3. Generate sequential panel images (Imagen 3)
-   * 4. Upload panel images to Cloudinary (Phase 7)
-   * 5. Automatically persist comic to MongoDB (Phase 8)
+   * 3. Generate concurrent panel images (Hugging Face FLUX)
+   * 4. Upload panel images to Cloudinary
+   * 5. Automatically persist comic to MongoDB
    * 6. Return complete comic data
    */
   static async generateFullComic(req, res, next) {
@@ -24,7 +24,7 @@ export class ComicController {
       console.log(`Style: ${style} | Panels: ${panelCount} | Lang: ${language}`);
 
       // Step 1-3: Story Analysis, Character Bible, and consistent imagePrompts
-      const storyboard = await GeminiService.analyzeStory({
+      const storyboard = await OpenRouterService.analyzeStory({
         story: story.trim(),
         style,
         panelCount: parseInt(panelCount, 10) || 6,
