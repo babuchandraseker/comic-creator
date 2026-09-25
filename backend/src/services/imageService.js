@@ -52,7 +52,7 @@ export class ImageService {
     const token = process.env.HF_TOKEN;
 
     if (!token) {
-      console.warn('[ImageService] HF_TOKEN not configured, using themed fallback SVG');
+      console.warn(`[ImageService] Panel ${panelNumber}: HF_TOKEN not configured in environment, using themed fallback SVG`);
       const fallbackSvg = this.generateThemedFallbackSvg({
         panelNumber,
         style,
@@ -76,85 +76,97 @@ export class ImageService {
     });
 
     const modelName = process.env.HF_IMAGE_MODEL || 'black-forest-labs/FLUX.1-schnell';
-    console.log(`[IMAGE] Starting generation for panel ${panelNumber}`);
-    console.log(`[IMAGE] Model: ${modelName}`);
-    console.log(`[IMAGE] Hugging Face Inference Provider request started`);
+    console.log(`[IMAGE] Starting generation for Panel ${panelNumber} | Model: ${modelName}`);
 
-    try {
-      const hf = new HfInference(token);
-      const result = await hf.textToImage({
-        model: modelName,
-        inputs: finalPrompt,
-      });
+    const hf = new HfInference(token);
 
-      let buffer;
-      let mimeType = 'image/jpeg';
+    // Attempt generation with 1 auto-retry on transient failures
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        console.log(`[IMAGE] Panel ${panelNumber}: Dispatching to Hugging Face Inference Providers (Attempt ${attempt}/2)...`);
+        const result = await hf.textToImage({
+          model: modelName,
+          inputs: finalPrompt,
+        });
 
-      if (result instanceof Blob) {
-        mimeType = result.type || 'image/jpeg';
-        const arrayBuffer = await result.arrayBuffer();
-        buffer = Buffer.from(arrayBuffer);
-      } else if (Buffer.isBuffer(result)) {
-        buffer = result;
-      } else if (result instanceof ArrayBuffer) {
-        buffer = Buffer.from(result);
-      } else {
-        throw new Error('Unsupported image result format from Hugging Face');
+        let buffer;
+        let mimeType = 'image/jpeg';
+
+        if (result instanceof Blob) {
+          mimeType = result.type || 'image/jpeg';
+          const arrayBuffer = await result.arrayBuffer();
+          buffer = Buffer.from(arrayBuffer);
+        } else if (Buffer.isBuffer(result)) {
+          buffer = result;
+        } else if (result instanceof ArrayBuffer) {
+          buffer = Buffer.from(result);
+        } else {
+          throw new Error('Unsupported image result format from Hugging Face');
+        }
+
+        const base64Data = buffer.toString('base64');
+        const dataUrl = `data:${mimeType};base64,${base64Data}`;
+
+        console.log(`[IMAGE DIAGNOSTIC] ✅ Panel ${panelNumber} Generated Successfully | Bytes: ${buffer.length} | Format: ${mimeType} | Model: ${modelName} | Attempt: ${attempt}`);
+
+        return {
+          success: true,
+          imageUrl: dataUrl,
+          provider: `huggingface:${modelName}`,
+          isFallback: false,
+        };
+      } catch (err) {
+        const rawError = String(err.message || err || 'Unknown inference error');
+        // Redact any tokens or keys that might be in query strings or headers
+        const cleanError = token ? rawError.split(token).join('[REDACTED_HF_TOKEN]') : rawError;
+
+        console.warn(`[IMAGE DIAGNOSTIC] ⚠️ Panel ${panelNumber} Attempt ${attempt} failed: ${cleanError}`);
+
+        // If attempt 1 failed and error looks transient (rate-limit, temporary concurrency spike, 503), wait and retry once
+        const isTransient = cleanError.includes('429') || cleanError.includes('503') || cleanError.includes('rate limit') || cleanError.includes('concurrency') || cleanError.includes('ECONNRESET');
+        if (attempt === 1 && isTransient) {
+          console.log(`[IMAGE] Panel ${panelNumber}: Retrying after transient provider backoff (600ms)...`);
+          await new Promise((res) => setTimeout(res, 600));
+          continue;
+        }
+
+        // On permanent error or final attempt exhausted
+        let userFacingError = cleanError;
+        let errorCategory = 'Inference Error';
+
+        if (cleanError.includes('permissions to call Inference Providers')) {
+          userFacingError =
+            "Hugging Face token lacks 'Make calls to Inference Providers' permission. Please enable this permission under https://hf.co/settings/tokens.";
+          errorCategory = 'Authentication failure';
+        } else if (cleanError.includes('depleted your monthly included credits') || cleanError.includes('Purchase pre-paid credits')) {
+          userFacingError = 'Hugging Face monthly provider credits depleted. Please top up credits or use standard inference.';
+          errorCategory = 'Quota exceeded';
+        } else if (cleanError.includes('429') || cleanError.includes('quota') || cleanError.includes('rate limit')) {
+          userFacingError = 'Hugging Face Inference rate limit/quota reached. Please retry shortly.';
+          errorCategory = 'Quota exceeded';
+        } else if (cleanError.includes('401') || cleanError.includes('Invalid token')) {
+          userFacingError = 'Invalid Hugging Face API token in backend/.env.';
+          errorCategory = 'Invalid API key';
+        }
+
+        console.log(`[IMAGE DIAGNOSTIC] ❌ Panel ${panelNumber} Final Status: Fallback Placeholder | Category: ${errorCategory} | Error: ${userFacingError}`);
+
+        const fallbackSvg = this.generateThemedFallbackSvg({
+          panelNumber,
+          style,
+          prompt,
+          errorMessage: userFacingError,
+        });
+
+        return {
+          success: false,
+          imageUrl: fallbackSvg,
+          error: userFacingError,
+          errorCategory,
+          isFallback: true,
+          provider: 'fallback-svg',
+        };
       }
-
-      const base64Data = buffer.toString('base64');
-      const dataUrl = `data:${mimeType};base64,${base64Data}`;
-
-      console.log(`[IMAGE] Response contains image: true`);
-      console.log(`[IMAGE] MIME type: ${mimeType}`);
-      console.log(`[IMAGE] Image bytes: ${buffer.length}`);
-      console.log(`[IMAGE] Final image URL available: true`);
-      console.log(`[IMAGE] Using fallback: false`);
-
-      return {
-        success: true,
-        imageUrl: dataUrl,
-        provider: `huggingface:${modelName}`,
-        isFallback: false,
-      };
-    } catch (err) {
-      console.error(`[IMAGE] Hugging Face Generation Failed on panel ${panelNumber}:`, err.message);
-
-      let userFacingError = err.message || 'Failed to generate panel image';
-      let errorCategory = 'Inference Error';
-
-      if (err.message?.includes('permissions to call Inference Providers')) {
-        userFacingError =
-          "Hugging Face token lacks 'Make calls to Inference Providers' permission. Please enable this permission under https://hf.co/settings/tokens or create a token with Inference Providers access.";
-        errorCategory = 'Authentication failure';
-      } else if (err.message?.includes('429') || err.message?.includes('quota') || err.message?.includes('rate limit')) {
-        userFacingError = 'Hugging Face Inference rate limit/quota reached. Please retry shortly.';
-        errorCategory = 'Quota exceeded';
-      } else if (err.message?.includes('401') || err.message?.includes('Invalid token')) {
-        userFacingError = 'Invalid Hugging Face API token in backend/.env.';
-        errorCategory = 'Invalid API key';
-      }
-
-      console.log(`[IMAGE] Response contains image: false`);
-      console.log(`[IMAGE] Error category: ${errorCategory}`);
-      console.log(`[IMAGE] Final image URL available: true (fallback)`);
-      console.log(`[IMAGE] Using fallback: true`);
-
-      const fallbackSvg = this.generateThemedFallbackSvg({
-        panelNumber,
-        style,
-        prompt,
-        errorMessage: userFacingError,
-      });
-
-      return {
-        success: false,
-        imageUrl: fallbackSvg,
-        error: userFacingError,
-        errorCategory,
-        isFallback: true,
-        provider: 'fallback-svg',
-      };
     }
   }
 

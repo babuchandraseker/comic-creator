@@ -165,13 +165,13 @@ export default function ComicViewer({ comicData, onReset, onUpdateComicData, onS
       {/* Collapsible Storyboard & Script Breakdown Inspector */}
       {showStoryboard && <StoryboardView comicData={comicData} />}
 
-      {/* Notice when AI Image generation is using fallbacks due to free-tier account quota */}
+      {/* Notice when one or more panels used fallback placeholders */}
       {panels.some((p) => p.isFallbackImage) && (
         <div className="p-3.5 rounded-xl bg-amber-500/10 border-2 border-amber-500/40 text-amber-900 dark:text-amber-200 flex items-start sm:items-center justify-between gap-3 text-xs sm:text-sm font-medium shadow-comic-sm">
           <div className="flex items-start sm:items-center gap-2.5">
             <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5 sm:mt-0" />
             <span>
-              <strong>Notice:</strong> AI image generation is currently unavailable for this API account (Gemini Free-Tier quota: 0). Panels are rendered with SVG fallback layouts. Live live AI artwork will automatically generate once image-generation billing is enabled on Google AI Studio.
+              <strong>Notice:</strong> AI artwork generation encountered a temporary provider issue for some panels (rendered with fallback placeholders). You can click <strong>Regenerate</strong> on any panel to generate its live artwork.
             </span>
           </div>
         </div>

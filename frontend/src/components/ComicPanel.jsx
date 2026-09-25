@@ -259,16 +259,16 @@ export default function ComicPanel({
           {!isRegenerating && (
             isFallbackImage ? (
               <div
-                className="absolute top-2 right-2 bg-amber-500 text-black text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded border-2 border-black shadow-comic-sm flex items-center gap-1"
-                title="Fallback Placeholder Artwork: AI image generation is currently unavailable for this API account."
+                className="absolute top-2 right-2 bg-amber-500 text-black text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded border-2 border-black shadow-comic-sm flex items-center gap-1 cursor-help"
+                title={panel.imageError ? `AI artwork generation failed: ${panel.imageError}. Click Regenerate to retry.` : 'AI artwork generation failed for this panel. Try Regenerate.'}
               >
                 <AlertTriangle className="w-3 h-3 text-black" />
                 <span>FALLBACK PLACEHOLDER</span>
               </div>
             ) : imageUrl ? (
               <div
-                className="absolute top-2 right-2 bg-emerald-500 text-black text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded border-2 border-black shadow-comic-sm flex items-center gap-1"
-                title="Live AI generated comic illustration powered by Gemini"
+                className="absolute top-2 right-2 bg-emerald-500 text-black text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded border-2 border-black shadow-comic-sm flex items-center gap-1 cursor-default"
+                title="Real AI generated comic illustration powered by Hugging Face FLUX"
               >
                 <Sparkles className="w-3 h-3 text-black" />
                 <span>REAL AI ARTWORK</span>
