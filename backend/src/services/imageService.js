@@ -50,8 +50,17 @@ export class ImageService {
     aspectRatio = '1:1',
   }) {
     const token = process.env.HF_TOKEN;
+    const tokenExists = Boolean(token && token.trim().length > 0);
+    const tokenPrefix = tokenExists
+      ? (token.trim().startsWith('hf_') ? 'hf_***' : 'custom_***')
+      : 'NONE';
 
-    if (!token) {
+    // Model is strictly and explicitly black-forest-labs/FLUX.1-schnell
+    const model = 'black-forest-labs/FLUX.1-schnell';
+
+    console.log(`[IMAGE DIAGNOSTIC] Panel ${panelNumber} | Model: ${model} | HF_TOKEN Exists: ${tokenExists} | Token Prefix: ${tokenPrefix}`);
+
+    if (!tokenExists) {
       console.warn(`[ImageService] Panel ${panelNumber}: HF_TOKEN not configured in environment, using themed fallback SVG`);
       const fallbackSvg = this.generateThemedFallbackSvg({
         panelNumber,
@@ -75,17 +84,14 @@ export class ImageService {
       panelNumber,
     });
 
-    const modelName = process.env.HF_IMAGE_MODEL || 'black-forest-labs/FLUX.1-schnell';
-    console.log(`[IMAGE] Starting generation for Panel ${panelNumber} | Model: ${modelName}`);
-
-    const hf = new HfInference(token);
+    const hf = new HfInference(process.env.HF_TOKEN);
 
     // Attempt generation with 1 auto-retry on transient failures
     for (let attempt = 1; attempt <= 2; attempt++) {
       try {
-        console.log(`[IMAGE] Panel ${panelNumber}: Dispatching to Hugging Face Inference Providers (Attempt ${attempt}/2)...`);
+        console.log(`[IMAGE] Panel ${panelNumber}: Dispatching to Hugging Face Inference Providers (Model: ${model}, Attempt ${attempt}/2)...`);
         const result = await hf.textToImage({
-          model: modelName,
+          model: model,
           inputs: finalPrompt,
         });
 
@@ -107,12 +113,12 @@ export class ImageService {
         const base64Data = buffer.toString('base64');
         const dataUrl = `data:${mimeType};base64,${base64Data}`;
 
-        console.log(`[IMAGE DIAGNOSTIC] ✅ Panel ${panelNumber} Generated Successfully | Bytes: ${buffer.length} | Format: ${mimeType} | Model: ${modelName} | Attempt: ${attempt}`);
+        console.log(`[IMAGE DIAGNOSTIC] ✅ Panel ${panelNumber} Generated Successfully | Bytes: ${buffer.length} | Format: ${mimeType} | Model: ${model} | Attempt: ${attempt}`);
 
         return {
           success: true,
           imageUrl: dataUrl,
-          provider: `huggingface:${modelName}`,
+          provider: `huggingface:${model}`,
           isFallback: false,
         };
       } catch (err) {
@@ -144,7 +150,7 @@ export class ImageService {
         } else if (cleanError.includes('429') || cleanError.includes('quota') || cleanError.includes('rate limit')) {
           userFacingError = 'Hugging Face Inference rate limit/quota reached. Please retry shortly.';
           errorCategory = 'Quota exceeded';
-        } else if (cleanError.includes('401') || cleanError.includes('Invalid token')) {
+        } else if (cleanError.includes('401') || cleanError.includes('Invalid token') || cleanError.includes('Invalid username or password')) {
           userFacingError = 'Invalid Hugging Face API token in backend/.env.';
           errorCategory = 'Invalid API key';
         }
